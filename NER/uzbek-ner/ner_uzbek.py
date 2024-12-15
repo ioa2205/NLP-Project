@@ -50,65 +50,57 @@ from sklearn.model_selection import train_test_split
 train_df = dataset['train'].to_pandas()
 
 # Split the DataFrame into train and test sets
-train_df, test_df = train_test_split(train_df, test_size=0.2, random_state=42) # Adjust test_size as needed
+train_df, test_df = train_test_split(train_df, test_size=0.2, random_state=42)
 
 # Convert the DataFrames back to datasets
 dataset['train'] = Dataset.from_pandas(train_df)
 dataset['test'] = Dataset.from_pandas(test_df)
 
-# Convert NER dictionary to token-aligned labels
 def preprocess_data(example):
     text = example["text"]
     ner_dict = example["ner"]
 
-    # Tokenize the text using the Hugging Face tokenizer
     tokenized_inputs = tokenizer(text, truncation=True, is_split_into_words=False)
-    tokens = tokenizer.convert_ids_to_tokens(tokenized_inputs["input_ids"])  # Get the tokens
-    word_ids = tokenized_inputs.word_ids()  # Get word IDs
+    tokens = tokenizer.convert_ids_to_tokens(tokenized_inputs["input_ids"]) 
+    word_ids = tokenized_inputs.word_ids() 
+    labels = ["O"] * len(tokens)  
 
-    labels = ["O"] * len(tokens)  # Initialize all tokens as "O"
-
-    # Assign NER labels to relevant tokens
     for key, values in ner_dict.items():
-        if values:  # Check for non-empty NER entries
+        if values:  
             for entity in values:
-                # Tokenize the entity using the Hugging Face tokenizer to ensure alignment
-                entity_tokens = tokenizer.tokenize(entity) # tokenize the entity string to get a list of tokens.
+                entity_tokens = tokenizer.tokenize(entity) 
 
-                # Find the start and end indices of the entity in the tokenized text
                 start_idx = -1
-                for i in range(len(tokens) - len(entity_tokens) + 1): # Find the start index of the entity in tokens.
+                for i in range(len(tokens) - len(entity_tokens) + 1): 
                     if tokens[i : i + len(entity_tokens)] == entity_tokens:
                         start_idx = i
                         break
 
-                if start_idx != -1:  # Entity found in tokenized text
-                    for idx in range(len(entity_tokens)): # iterate over the entity_tokens.
-                        if idx == 0: # assign the "B-" prefix to the first token.
+                if start_idx != -1: 
+                    for idx in range(len(entity_tokens)): 
+                        if idx == 0: 
                             labels[start_idx + idx] = f"B-{key.upper()}"
                         else:
                             labels[start_idx + idx] = f"I-{key.upper()}"
 
-    # Align labels (This part remains the same)
     aligned_labels = []
     for word_idx in word_ids:
         if word_idx is None:
             aligned_labels.append(-100)
         else:
-            # Check if label is in label2id, if not add it to label2id and id2label:
             if labels[word_idx] not in label2id:
                 new_label_id = len(label2id)
                 label2id[labels[word_idx]] = new_label_id
                 id2label[new_label_id] = labels[word_idx]
 
-            aligned_labels.append(label2id[labels[word_idx]]) # Assign label id to aligned_labels.
+            aligned_labels.append(label2id[labels[word_idx]]) 
 
     tokenized_inputs["labels"] = aligned_labels
     return tokenized_inputs
 
 tokenized_datasets = dataset.map(preprocess_data, batched=False)
 
-num_labels = len(label2id)  # Number of unique NER labels
+num_labels = len(label2id) 
 model = AutoModelForTokenClassification.from_pretrained(
     model_name, num_labels=num_labels, id2label=id2label, label2id=label2id
 )
@@ -150,24 +142,21 @@ def compute_metrics(pred):
     return metric.compute(predictions=true_predictions, references=true_labels)
 
 # Training Arguments
-# Training Arguments
 training_args = TrainingArguments(
     output_dir="./ner-uzbek",
-    evaluation_strategy="epoch", # Evaluation strategy set to 'epoch'
+    evaluation_strategy="epoch",
     learning_rate=5e-5,
     per_device_train_batch_size=16,
     per_device_eval_batch_size=16,
     num_train_epochs=3,
     weight_decay=0.01,
     logging_dir="./logs",
-    save_strategy="epoch",  # Change save_strategy to "epoch" to match evaluation_strategy
-    # save_steps=500, # Remove or comment out save_steps
+    save_strategy="epoch", 
     load_best_model_at_end=True,
-    metric_for_best_model="overall_f1",  # Changed to 'overall_f1'
+    metric_for_best_model="overall_f1", 
     report_to="none",
 )
 
-# Trainer Setup
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -183,15 +172,13 @@ trainer.train()
 from huggingface_hub import HfApi
 model.save_pretrained("uzbek-ner")
 tokenizer.save_pretrained("uzbek-ner")
-# Define your repository name
 repo_name = "ibodullo2205/uzbek-ner"
 
-# Upload the model to the repository
 from huggingface_hub import upload_folder
 
 upload_folder(
     repo_id=repo_name,
-    folder_path="./uzbek-ner",  # Path to the model folder
+    folder_path="./uzbek-ner", 
     commit_message="Upload my model from Google Colab",
     token="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"
 )
