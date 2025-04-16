@@ -81,6 +81,10 @@ For research use only. Commercial use requires permission.
 ---
 
 
+
+Some extra details, from Wandb:
+
+
 ![image](https://github.com/user-attachments/assets/1d61fc27-4829-4f41-a1b9-864361c1518e)
 
 ![image](https://github.com/user-attachments/assets/a2bcf58d-0d0b-4b61-a696-60eaaa751379)
