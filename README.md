@@ -21,7 +21,7 @@ This repository presents an end-to-end Uzbek NLP system that transcribes spoken 
 
 - 🔍 **Named Entity Recognition (NER):** 
   - Custom-trained BERT-based model
-  - Recognizes `PER` (Person), `LOC` (Location), `ORG` (Organization), `DATE`, and `MISC`
+  - Recognizes `PER` (Person), `LOC` (Location), `ORG` (Organization), `DATE`, and others.
   - Annotated dataset tailored for Uzbek morphology and entity syntax
 
 - ⚙️ **Pipeline Integration:**
