@@ -25,7 +25,7 @@ model_name = "bert-base-multilingual-cased"
 peft_output_model_name = "uzbek-ner"
 final_output_model_dir = "./ner-uzbek-model"
 huggingface_repo_name = "ibodullo2205/uzbek-ner"
-training_output_dir = "./ner-uzbek-results" # Corrected from "./ner-uzbek" to avoid conflict
+training_output_dir = "./ner-uzbek-results" 
 logging_dir = "./logs"
 # --- End Configuration Parameters ---
 
@@ -57,19 +57,7 @@ num_labels = len(_final_labels)
 # Keep track of seen unknown ner_categories to avoid repetitive logging
 seen_unknown_categories = set()
 
-# --- Data Analysis (Optional - for understanding label distribution) ---
-# This would need to be adapted if you want to see counts for B-TAG, I-TAG, O
-# from collections import Counter
 
-# ner_tags = [tag for sublist in dataset['train']['ner'] for tag in sublist]
-# tag_counts = Counter(ner_tags)
-# print("Original tag counts:", tag_counts)
-# print("List of all NER tags in training data:", ner_tags) # This can be very verbose
-# --- End Data Analysis ---
-
-# --- Train-Test Split ---
-# --- Train-Test-Validation Split ---
-# The dataset initially has a 'train' split. We need to split it.
 if 'train' not in dataset:
     raise ValueError("Original dataset does not contain 'train' split.")
 
@@ -174,16 +162,14 @@ tokenized_datasets = processed_dataset.map(
 )
 
 # --- Model Configuration & Loading ---
-# num_labels, final_id2label, final_label2id are now defined globally at the top based on BASE_LABEL_LIST
 base_model = AutoModelForTokenClassification.from_pretrained(
     model_name,
-    num_labels=num_labels, # From the finalized list
-    id2label=final_id2label, # From the finalized list
-    label2id=final_label2id  # From the finalized list
+    num_labels=num_labels,
+    id2label=final_id2label, 
+    label2id=final_label2id  
 )
 
 # PEFT Configuration (LoRA)
-# No change needed here regarding label consistency as base_model is now correctly initialized.
 model_prepared = prepare_model_for_kbit_training(base_model)
 lora_config = LoraConfig(
     r=32,
@@ -201,11 +187,9 @@ data_collator = DataCollatorForTokenClassification(tokenizer)
 # --- Evaluation Metric ---
 seqeval_metric = evaluate.load("seqeval")
 
-# final_id2label is already defined globally and is fixed.
-# It's passed to the model, so it's the correct one to use for decoding predictions.
 
 def compute_metrics(p):
-    predictions, gold_labels = p # Renamed 'labels' to 'gold_labels' for clarity
+    predictions, gold_labels = p 
     predictions = np.argmax(predictions, axis=2) # Shape: (batch_size, seq_len, num_labels) -> (batch_size, seq_len)
 
     # Decode predictions and labels, removing ignored indices (-100)
@@ -231,18 +215,18 @@ def compute_metrics(p):
 # --- Training Arguments ---
 training_args = TrainingArguments(
     output_dir=training_output_dir,
-    evaluation_strategy="epoch",     # Evaluate at the end of each epoch
+    evaluation_strategy="epoch",    
     learning_rate=5e-5,
-    per_device_train_batch_size=16,  # Adjust based on GPU memory
-    per_device_eval_batch_size=16,   # Adjust based on GPU memory
-    num_train_epochs=5,              # Standard number of epochs for fine-tuning
+    per_device_train_batch_size=16,  
+    per_device_eval_batch_size=16,   
+    num_train_epochs=5,              
     weight_decay=0.01,
     logging_dir=logging_dir,
-    logging_steps=10,                # Log metrics every 10 steps
-    save_strategy="epoch",           # Save model checkpoint at the end of each epoch
-    load_best_model_at_end=True,     # Load the best model found during training
-    metric_for_best_model="f1",      # Use F1 score to determine the best model
-    report_to="none",                # Disable reporting to external services (e.g., W&B)
+    logging_steps=10,               
+    save_strategy="epoch",           
+    load_best_model_at_end=True,    
+    metric_for_best_model="f1",     
+    report_to="none",                
 )
 
 # --- Trainer Initialization ---
@@ -250,7 +234,7 @@ trainer = Trainer(
     model=peft_model,
     args=training_args,
     train_dataset=tokenized_datasets["train"],
-    eval_dataset=tokenized_datasets["validation"], # Use the new validation split for evaluation during training
+    eval_dataset=tokenized_datasets["validation"], 
     tokenizer=tokenizer,
     data_collator=data_collator,
     compute_metrics=compute_metrics,
@@ -274,7 +258,7 @@ else:
 peft_model.save_pretrained(peft_output_model_name)
 tokenizer.save_pretrained(peft_output_model_name) # Save tokenizer alongside PEFT model
 
-# Save full model (if needed, or just use the PEFT model)
+# Save full model 
 # To save the merged model (LoRA weights merged with base model):
 # merged_model = peft_model.merge_and_unload() # Corrected: use peft_model
 # merged_model.save_pretrained(final_output_model_dir)
@@ -292,18 +276,13 @@ trainer.save_model(final_output_model_dir)
 tokenizer.save_pretrained(final_output_model_dir)
 
 
-# --- Hugging Face Hub Upload (Optional) ---
-# Ensure you are logged in via `huggingface-cli login` if you want to upload.
-# The token is removed for security; authentication should be handled by the environment.
-# Consider whether to upload the PEFT adapters (peft_output_model_name) 
-# or the full model (final_output_model_dir).
-# Uploading PEFT adapters is usually preferred for LoRA.
+# --- Hugging Face Hub Upload  ---
 print(f"\nAttempting to upload PEFT model adapters from ./{peft_output_model_name} to Hugging Face Hub...")
 upload_folder(
     repo_id=huggingface_repo_name,
-    folder_path=peft_output_model_name, # Uploading the PEFT model adapters
+    folder_path=peft_output_model_name, 
     commit_message="Upload PEFT model adapters and tokenizer",
-    # token="YOUR_HF_TOKEN" # Removed: Token should be handled by huggingface-cli login or env variables
+    # token="YOUR_HF_TOKEN" 
 )
 
 print(f"\nPEFT Model adapters and tokenizer saved to ./{peft_output_model_name}")
